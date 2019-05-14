@@ -1,0 +1,62 @@
+% Time and PFU were extracted from one-step growth curve
+Time = [17.881, 21.896, 23.962, 25.961, 27.811, 29.887,...
+    34.717, 39.759, 45.027];
+PFU = [1.745, 7.368, 11.751, 88.71, 113.516, 133.921,...
+158.39, 156.779, 150.140];
+
+%% Burst size or yield
+% Set threshold of 95% maximum
+threshold = 0.95 * max(PFU);
+total = 0;
+count = 0;
+for j = 1 : length(Time)
+    if (PFU(j) >= threshold)
+        total = total + PFU(j);
+        count = count + 1;
+    end
+end
+% If PFU was in per cell base, then use burst_size; 
+% or use yield instead.
+burst_size = total / count;
+% yield = total / count;
+
+%% Data cleaning
+% index of first point equal to or greater than burst_size/yield
+i = find(PFU >= burst_size);
+% i = find(PFU >= yield);
+cl = [];
+for n = i : length(Time)
+        if PFU(n) <= 0.8 * burst_size
+            cl = [cl n];
+        end
+end
+% clean decreasing tail
+Time(cl) = [];
+PFU(cl) = [];
+
+%% Virus growth latent time, VTl
+slope = [];
+for i = 1 : (length(Time) - 2)
+    T_regression = [Time(i) Time(i+1) Time(i+2)];
+    PFU_regression = [PFU(i) PFU(i+1) PFU(i+2)];
+    [r, m, b] = regression(T_regression, PFU_regression);
+    slope(i) = m;
+end
+% get value and index of maximum slope
+[k_max, i_max] = max(slope);
+Time_regression = [Time(i_max) Time(i_max+1) Time(i_max+2)];
+PFU_regression = [PFU(i_max) PFU(i_max+1) PFU(i_max+2)];
+[r, m, b] = regression(Time_regression, PFU_regression);
+eclipse_time = -b / m;
+% Time_regression(i) and PFU_regression(i) are the coordinate of t_e
+
+%% Virus growth overall time, VTo
+% set threshold
+p = min(find(PFU >= 0.9*burst_size));
+T_regression_2 = Time(i:p)';
+PFU_regression_2 = PFU(i:p)';
+[r_2, m_2, b_2] = regression(T_regression_2, PFU_regression_2);
+overall_time = (burst_size - b_2) / m_2;
+
+%% Virus growth rise period, VTr
+rise_period = overall_time - eclipse_time;
